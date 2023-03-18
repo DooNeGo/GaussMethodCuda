@@ -41,14 +41,14 @@ void showMatrix(float* matrix, int rows, int columns)
     }
 }
 
-__global__ void divideRowGPU(float* cudaMatrix, int counter, int columns, int elemsPerThread, int threadNum)
+__global__ void divideRowGPU(float* cudaMatrix, int counter, int columns, int elemsPerThread, int threadNum, float divider)
 {
-    int i = (blockIdx.x * blockDim.x * elemsPerThread) + (threadIdx.x * elemsPerThread);
+    int i = blockIdx.x * blockDim.x * elemsPerThread + threadIdx.x * elemsPerThread;
     if (i >= columns)
         return;
     for (int j = 0; i < columns && j < elemsPerThread; j++)
     {
-        cudaMatrix[counter * columns + i + j] /= cudaMatrix[counter * columns + counter];
+        cudaMatrix[counter * columns + i + j] /= divider;
     }
 
 }
@@ -82,14 +82,15 @@ float *doGaussHost(float* matrix, int rows, int columns)
         fprintf(stderr, "cudaMemcpy failed!");
         return NULL;
     }
-    int threadNum = 16;
+    int threadNum = 128;
     const int elemsPerThread = 16;
     dim3 blockSize = dim3(threadNum, 1, 1);
     dim3 gridSize = dim3(columns / (threadNum * elemsPerThread) + 1, rows, 1);
     dim3 gridSize1 = dim3(columns / (threadNum * elemsPerThread) + 1, 1, 1);
     for (int i = 0; i < rows; i++)
     {
-        divideRowGPU << < gridSize1, blockSize >> > (cudaMatrix, i, columns, elemsPerThread, threadNum);
+        float divider = matrix[i * columns + i];
+        divideRowGPU << < gridSize1, blockSize >> > (cudaMatrix, i, columns, elemsPerThread, threadNum, divider);
         cudaDeviceSynchronize();
         //doGaussGPU << < gridSize, blockSize >> > (cudaMatrix, columns, i, rows, elemsPerThread, threadNum);
         cudaDeviceSynchronize();

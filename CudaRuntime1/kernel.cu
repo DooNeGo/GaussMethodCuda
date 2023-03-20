@@ -10,8 +10,8 @@
 
 enum
 {
-    SUCCESSFUL_COMPLETION = 0,
-    UNSUCCESSFUL_COMPLETION = 1,
+    SUCCESSFUL_CODE = 0,
+    UNSUCCESSFUL_CODE = 1,
 };
 
 float* getMatrix(int rows, int columns)
@@ -157,7 +157,7 @@ int main()
     if (cudaStatus != cudaSuccess)
     {
         fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        return UNSUCCESSFUL_COMPLETION;
+        return UNSUCCESSFUL_CODE;
     }
 
     int rows;
@@ -189,8 +189,8 @@ int main()
     cudaStatus = cudaDeviceReset();
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaDeviceReset failed!");
-        return UNSUCCESSFUL_COMPLETION;
+        return UNSUCCESSFUL_CODE;
     }
     system("pause");
-    return SUCCESSFUL_COMPLETION;
+    return SUCCESSFUL_CODE;
 }

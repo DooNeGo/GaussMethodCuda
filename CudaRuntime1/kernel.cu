@@ -175,11 +175,11 @@ int main()
     float* roots = getRoots(newMatrix, rows, columns);
     double delay = (double)(timeAfter - timeBefore) / CLOCKS_PER_SEC;
     
-    //printf("\nEntered matrix:\n");
-    //showMatrix(matrix, rows, columns);
-    //printf("\nNew matrix:\n");
-    //showMatrix(newMatrix, rows, columns);
-    //printf("\nRoots: ");
+    printf("\nEntered matrix:\n");
+    showMatrix(matrix, rows, columns);
+    printf("\nNew matrix:\n");
+    showMatrix(newMatrix, rows, columns);
+    printf("\nRoots: ");
     showRoots(roots, rows);
     printf("\n\nDelay : %.30lf seconds\n", delay);
     

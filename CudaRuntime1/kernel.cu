@@ -52,19 +52,27 @@ __global__ void divideRowGPU(float* cudaMatrix, const int counter, const int col
     }
 }
 
-__global__ void doGaussGPU(float* cudaMatrix, const int columns, const int i, const int rows, const int elemsPerThread)
+__global__ void doGaussGPU(float* cudaMatrix, const int columns, const int i, const int rows, const int elemsPerThread, const float *temp)
 {
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
     const int k = i + 1 + y;
     if (k >= rows)
         return;
-    const float temp = cudaMatrix[k * columns + i];
     const int x = (blockIdx.x * blockDim.x + threadIdx.x) * elemsPerThread;
     for (int j = 0; x + j < columns && j < elemsPerThread; j++)
     {
-        cudaMatrix[k * columns + x + j] -= cudaMatrix[i * columns + x + j] * temp;
+        cudaMatrix[k * columns + x + j] -= cudaMatrix[i * columns + x + j] * temp[k];
     }
-    return;
+}
+
+__global__ void copyMatrixColumn(float *temp, const float *cudaMatrix, const int rows, const int cols, const int counter, const int elemsPerThread)
+{
+    const int y = (blockIdx.y * blockDim.y + threadIdx.y) * elemsPerThread;
+    int i = counter + 1 + y;
+    for (int j = 0; i + j < rows && j < elemsPerThread; j++)
+    {
+        temp[i + j] = cudaMatrix[(i + j) * cols + counter];
+    }
 }
 
 float *doGaussHost(float* matrix, int rows, int columns)
@@ -87,14 +95,23 @@ float *doGaussHost(float* matrix, int rows, int columns)
     int threadNum = 128;
     const int elemsPerThread = 16;
     dim3 blockSize = dim3(threadNum, 1, 1);
+    dim3 blockSize1 = dim3(1, threadNum, 1);
     dim3 gridSize = dim3(columns / (threadNum * elemsPerThread) + 1, rows, 1);
-    dim3 gridSize1 = dim3(columns / (threadNum * elemsPerThread) + 1, 1, 1);
+    dim3 gridSizeOnlyColumn = dim3(columns / (threadNum * elemsPerThread) + 1, 1, 1);
+    dim3 gridSizeOnlyRow = dim3(1, rows / (threadNum * elemsPerThread) + 1, 1);
+    float* gpuTemp = 0;
+    cudaMalloc((float**)&gpuTemp, sizeof(float) * rows);
+    float* temp = (float*)malloc(sizeof(float) * rows);
     for (int i = 0; i < rows; i++)
     {
         float divider = matrix[i * columns + i];
-        divideRowGPU << < gridSize1, blockSize >> > (cudaMatrix, i, columns, elemsPerThread, divider);
+        divideRowGPU << < gridSizeOnlyColumn, blockSize >> > (cudaMatrix, i, columns, elemsPerThread, divider);
         cudaDeviceSynchronize();
-        doGaussGPU << < gridSize, blockSize >> > (cudaMatrix, columns, i, rows, elemsPerThread);
+        copyMatrixColumn<<< gridSizeOnlyRow, blockSize1>>>(gpuTemp, cudaMatrix, rows, columns, i, elemsPerThread);
+        cudaDeviceSynchronize();
+        cudaMemcpy(temp, gpuTemp, sizeof(float) * rows, cudaMemcpyDeviceToHost);
+        showMatrix(temp, 1, rows);
+        //doGaussGPU << < gridSize, blockSize >> > (cudaMatrix, columns, i, rows, elemsPerThread, gpuTemp);
         cudaDeviceSynchronize();
         //printf("%d\n", i + 1);
     }
@@ -107,6 +124,9 @@ float *doGaussHost(float* matrix, int rows, int columns)
     }
 
     cudaFree(cudaMatrix);
+    cudaFree(gpuTemp);
+    free(temp);
+
     return newMatrix;
 }
 
